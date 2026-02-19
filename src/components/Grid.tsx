@@ -5,6 +5,8 @@ type GridProps = {
   toggleCell: (row: number, col: number) => void;
 };
 
+const colors = ["white", "lightgreen", "lightcoral"];
+
 function Grid({ tasks, days, grid, toggleCell }: GridProps) {
   return (
     <table border={1} cellPadding={10}>
@@ -24,12 +26,11 @@ function Grid({ tasks, days, grid, toggleCell }: GridProps) {
               <td
                 key={colIndex}
                 onClick={() => toggleCell(rowIndex, colIndex)}
+                cellValue = (grid[row][col] + 1) % 3)
                 style={{
                   cursor: "pointer",
                   textAlign: "center",
-                  backgroundColor: grid[rowIndex][colIndex]
-                    ? "lightgreen"
-                    : "white",
+                  backgroundColor = colors[cellValue]
                 }}
               >
                 {grid[rowIndex][colIndex] ? "✔" : ""}

@@ -4,4 +4,6 @@ export type Row = {
   goal: number;
   streak: number;
   cells: number[];
+  editingField?: "goal" | "streak";
+  tempValue?: number;
 };

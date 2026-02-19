@@ -4,3 +4,4 @@
 [ ] Button to add row
 [ ] Button to clear day data (maybe "New Week" button that creates log)
 [ ] Create log file
+[ ] Add Week of: field. Maybe add dates under Weekday names

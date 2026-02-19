@@ -1,11 +1,12 @@
 type GridProps = {
   days: string[];
   tasks: string[];
-  grid: boolean[][];
+  grid: number[][];
   toggleCell: (row: number, col: number) => void;
 };
 
 const colors = ["white", "lightgreen", "lightcoral"];
+const symbols = ["", "✔", "✖"];
 
 function Grid({ tasks, days, grid, toggleCell }: GridProps) {
   return (
@@ -26,14 +27,14 @@ function Grid({ tasks, days, grid, toggleCell }: GridProps) {
               <td
                 key={colIndex}
                 onClick={() => toggleCell(rowIndex, colIndex)}
-                cellValue = (grid[row][col] + 1) % 3)
                 style={{
                   cursor: "pointer",
                   textAlign: "center",
-                  backgroundColor = colors[cellValue]
+                  backgroundColor: colors[grid[rowIndex][colIndex]]
                 }}
               >
-                {grid[rowIndex][colIndex] ? "✔" : ""}
+                {grid[rowIndex][colIndex]}
+                {symbols[grid[rowIndex][colIndex]]}
               </td>
             ))}
           </tr>

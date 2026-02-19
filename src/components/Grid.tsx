@@ -1,28 +1,33 @@
+import type { Row } from "./types.ts";
+
 type GridProps = {
   days: string[];
-  tasks: string[];
-  grid: number[][];
+  rows: Row[];
   toggleCell: (row: number, col: number) => void;
 };
 
 const colors = ["white", "lightgreen", "lightcoral"];
 const symbols = ["", "✔", "✖"];
 
-function Grid({ tasks, days, grid, toggleCell }: GridProps) {
+function Grid({ rows, days, toggleCell }: GridProps) {
   return (
     <table border={1} cellPadding={10}>
       <thead>
         <tr>
-          <th></th>
+          <th>Task</th>
+          <th>Goal</th>
           {days.map((day, index) => (
             <th key={index}>{day}</th>
           ))}
+          <th>Completed?</th>
+          <th>Streak</th>
         </tr>
       </thead>
       <tbody>
-        {tasks.map((task, rowIndex) => (
+        {rows.map((row, rowIndex) => (
           <tr key={rowIndex}>
-            <td>{task}</td>
+            <td>{row.task}</td>
+            <td>{row.goal}</td>
             {days.map((_, colIndex) => (
               <td
                 key={colIndex}
@@ -30,13 +35,14 @@ function Grid({ tasks, days, grid, toggleCell }: GridProps) {
                 style={{
                   cursor: "pointer",
                   textAlign: "center",
-                  backgroundColor: colors[grid[rowIndex][colIndex]]
+                  backgroundColor: colors[row.cells[colIndex]]
                 }}
               >
-                {grid[rowIndex][colIndex]}
-                {symbols[grid[rowIndex][colIndex]]}
+                {symbols[row.cells[colIndex]]}
               </td>
             ))}
+            <td>Ns</td>
+            <td>{row.streak}</td>
           </tr>
         ))}
       </tbody>

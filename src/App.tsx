@@ -9,6 +9,7 @@ const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function App() {
 
+  const [weekOf, setWeekOf] = useState<string>("");
   const [rows, setRows] = useState<Row[]>([
     { id: "1", task: "Workout", goal: 5, streak: 0, cells: Array(days.length).fill(0) },
     { id: "2", task: "Code", goal: 7, streak: 0, cells: Array(days.length).fill(0)  }
@@ -59,7 +60,13 @@ function App() {
   return (
     <div style={{ padding: 20 }}>
       <h2>HMI Whiteboard</h2>
-      <h3>Week of: </h3>
+      <h3>Week of: {""}
+          <input
+            type="date"
+            value={weekOf}
+            onChange={(e) => setWeekOf(e.target.value)}
+  />
+      </h3>
       <Grid
         days={days}
         rows={rows}

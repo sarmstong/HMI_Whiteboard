@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Row } from "./components/types.ts";
-
 import Grid from "./components/Grid.tsx";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -9,11 +8,17 @@ const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function App() {
 
-  const [weekOf, setWeekOf] = useState<string>("");
-  const [rows, setRows] = useState<Row[]>([
-    { id: "1", task: "Workout", goal: 5, streak: 0, cells: Array(days.length).fill(0) },
-    { id: "2", task: "Code", goal: 7, streak: 0, cells: Array(days.length).fill(0)  }
-  ]);
+  const [weekOf, setWeekOf] = useState<string>(() => {
+  return localStorage.getItem("hmi_weekOf") || "";
+  });
+  
+  const [rows, setRows] = useState<Row[]>(() => {
+    const savedRows = localStorage.getItem("hmi_rows");
+    return savedRows ? JSON.parse(savedRows) : [
+      { id: "1", task: "Workout", goal: 5, streak: 0, cells: Array(days.length).fill(0) },
+      { id: "2", task: "Code", goal: 7, streak: 0, cells: Array(days.length).fill(0) }
+    ];
+  });
 
   const toggleCell = (row: number, col: number) => {
     const newRows = [...rows];
@@ -56,6 +61,10 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    localStorage.setItem("hmi_rows", JSON.stringify(rows));
+    localStorage.setItem("hmi_weekOf", weekOf);
+    }, [rows, weekOf]);
 
   return (
     <div style={{ padding: 20 }}>

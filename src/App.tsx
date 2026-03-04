@@ -120,7 +120,42 @@ function App() {
         updateTempValue={updateTempValue}
         saveCellValue={saveCellValue}
       />
+      <div style={{ marginTop: '40px', borderTop: '2px solid #ccc', paddingTop: '20px' }}>
+        <h2>Archive History</h2>
+        {history.length === 0 ? (
+          <p>No archived weeks yet.</p>
+        ) : (
+          history.map((entry, index) => (
+            <details key={index} style={{ marginBottom: '10px', border: '1px solid #ddd', padding: '10px' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
+                Week of: {entry.weekOf} (Saved: {new Date(entry.savedAt).toLocaleDateString()})
+              </summary>
+              <table style={{ marginTop: '10px', width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th>Task</th>
+                    <th>Goal</th>
+                    <th>Completed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entry.data.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.task}</td>
+                      <td>{row.goal}</td>
+                      <td>
+                        {row.cells.filter(c => c === 1).length >= row.goal ? "✅" : "❌"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          ))
+        )}
+      </div>
     </div>
+    
   );
 }
 

@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Row, HistoryEntry } from "./components/types.ts";
-
 import Grid from "./components/Grid.tsx";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -92,6 +91,10 @@ function App() {
   // We can decide on that next.
   alert("Week archived successfully!");
 };
+  useEffect(() => {
+    localStorage.setItem("hmi_rows", JSON.stringify(rows));
+    localStorage.setItem("hmi_weekOf", weekOf);
+    }, [rows, weekOf]);
 
   return (
     <div style={{ padding: 20 }}>

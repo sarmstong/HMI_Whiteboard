@@ -12,6 +12,7 @@ type GridProps = {
 const colors = ["white", "lightgreen", "lightcoral"];
 const symbols = ["", "✔", "✖"];
 
+
 function Grid({ rows, days, toggleCell, startEditingCell, updateTempValue, saveCellValue}: GridProps) {
   return (
     <table border={1} cellPadding={10}>
@@ -67,7 +68,11 @@ function Grid({ rows, days, toggleCell, startEditingCell, updateTempValue, saveC
                 {symbols[row.cells[colIndex]]}
               </td>
             ))}
-            <td>Ns</td>
+            {/* Completed? Cells */}
+            <td>
+                {row.cells.filter(cell => cell === 1).length >= row.goal ? "Yes ✅" : "No"}
+            </td>
+            {/* Streak Cells */}
             <td>{row.streak}</td>
           </tr>
         ))}

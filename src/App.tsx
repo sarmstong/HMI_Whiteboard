@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { Row } from "./components/types.ts";
+import { useState, useEffect } from "react";
+import type { Row, HistoryEntry } from "./components/types.ts";
 
 import Grid from "./components/Grid.tsx";
 
@@ -8,12 +8,30 @@ const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 
 function App() {
+  const [weekOf, setWeekOf] = useState<string>(() => {
+    return localStorage.getItem("hmi_weekOf") || "";
+  });
 
-  const [weekOf, setWeekOf] = useState<string>("");
-  const [rows, setRows] = useState<Row[]>([
-    { id: "1", task: "Workout", goal: 5, streak: 0, cells: Array(days.length).fill(0) },
-    { id: "2", task: "Code", goal: 7, streak: 0, cells: Array(days.length).fill(0)  }
-  ]);
+  const [rows, setRows] = useState<Row[]>(() => {
+    const savedRows = localStorage.getItem("hmi_rows");
+    return savedRows ? JSON.parse(savedRows) : [
+      { id: "1", task: "Workout", goal: 5, streak: 0, cells: Array(days.length).fill(0) },
+      { id: "2", task: "Code", goal: 7, streak: 0, cells: Array(days.length).fill(0) }
+    ];
+  });
+
+  const [history, setHistory] = useState<HistoryEntry[]>(() => {
+    const savedHistory = localStorage.getItem("hmi_history");
+    return savedHistory ? JSON.parse(savedHistory) : [];
+  });
+
+  // --- ADD THIS BLOCK HERE ---
+  useEffect(() => {
+    localStorage.setItem("hmi_rows", JSON.stringify(rows));
+    localStorage.setItem("hmi_weekOf", weekOf);
+    localStorage.setItem("hmi_history", JSON.stringify(history));
+  }, [rows, weekOf, history]); 
+  // ----------------------------
 
   const toggleCell = (row: number, col: number) => {
     const newRows = [...rows];
@@ -56,6 +74,24 @@ function App() {
     }
   };
 
+  const archiveCurrentWeek = () => {
+  if (!weekOf) {
+    alert("Please set a 'Week of' date before saving.");
+    return;
+  }
+
+  const newEntry: HistoryEntry = {
+    weekOf: weekOf,
+    savedAt: new Date().toISOString(),
+    data: [...rows], // Shallow copy of the current rows
+  };
+
+  setHistory((prev) => [...prev, newEntry]);
+  
+  // Optional: Reset the board for the new week? 
+  // We can decide on that next.
+  alert("Week archived successfully!");
+};
 
   return (
     <div style={{ padding: 20 }}>
@@ -66,6 +102,12 @@ function App() {
             value={weekOf}
             onChange={(e) => setWeekOf(e.target.value)}
   />
+  <button 
+    onClick={archiveCurrentWeek} 
+    style={{ marginLeft: '10px', cursor: 'pointer' }}
+  >
+    Archive Week
+  </button>
       </h3>
       <Grid
         days={days}

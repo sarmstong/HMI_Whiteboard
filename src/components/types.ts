@@ -7,3 +7,9 @@ export type Row = {
   editingField?: "goal" | "streak";
   tempValue?: number;
 };
+
+export type HistoryEntry = {
+  weekOf: string;
+  savedAt: string; // ISO timestamp of when you hit "Save"
+  data: Row[];
+};

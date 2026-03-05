@@ -4,16 +4,17 @@ type GridProps = {
   days: string[];
   rows: Row[];
   toggleCell: (row: number, col: number) => void;
-  startEditingCell: (rowIndex: number, field: "goal" | "streak") => void;
+  startEditingCell: (rowIndex: number, field: "goal" | "streak" | "task") => void;
   updateTempValue: (rowIndex: number, value: string) => void;
   saveCellValue: (rowIndex: number) => void;
+  deleteRow: (id: string) => void;
 };
 
 const colors = ["white", "lightgreen", "lightcoral"];
 const symbols = ["", "✔", "✖"];
 
 
-function Grid({ rows, days, toggleCell, startEditingCell, updateTempValue, saveCellValue}: GridProps) {
+function Grid({ rows, days, toggleCell, startEditingCell, updateTempValue, saveCellValue, deleteRow}: GridProps) {
   return (
     <table border={1} cellPadding={10}>
       <thead>
@@ -30,7 +31,23 @@ function Grid({ rows, days, toggleCell, startEditingCell, updateTempValue, saveC
       <tbody>
         {rows.map((row, rowIndex) => (
           <tr key={rowIndex}>
-            <td>{row.task}</td>
+            {/* Task Cell */}
+            <td onClick={() => startEditingCell(rowIndex, "task")} style={{ cursor: 'pointer' }}>
+              {row.editingField === "task" ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={row.tempValue ?? row.task}
+                  onChange={(e) => updateTempValue(rowIndex, e.target.value)}
+                  onBlur={() => saveCellValue(rowIndex)} // Saves when you click away
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveCellValue(rowIndex); // Saves when you hit Enter
+                  }}
+                />
+              ) : (
+                row.task
+              )}
+            </td>
             {/* Goal Cell */}
             <td
               onClick={() => startEditingCell(rowIndex, "goal")}
@@ -74,6 +91,16 @@ function Grid({ rows, days, toggleCell, startEditingCell, updateTempValue, saveC
             </td>
             {/* Streak Cells */}
             <td>{row.streak}</td>
+            {/* Delete Button */}
+            <td>
+              <button 
+                onClick={() => deleteRow(row.id)}
+                style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                title="Delete Task"
+              >
+                🗑️
+              </button>
+            </td>
           </tr>
         ))}
       </tbody>

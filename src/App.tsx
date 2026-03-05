@@ -38,24 +38,28 @@ function App() {
     setRows(newRows);
   };
 
-  const startEditingCell = (rowIndex: number, field: "goal" | "streak") => {
-    const newRows = [...rows]; // copy rows array
+  // Update the second argument to include "task"
+  const startEditingCell = (rowIndex: number, field: "goal" | "streak" | "task") => {
+    const newRows = [...rows];
     newRows[rowIndex] = {
-      ...newRows[rowIndex],       // copy the specific row object
+      ...newRows[rowIndex],
       editingField: field,
-      tempValue: newRows[rowIndex][field] ?? 0 // set tempGoal to current goal
+      // Use an empty string fallback for the task name
+      tempValue: newRows[rowIndex][field] ?? "" 
     };
-    setRows(newRows);            // update state
+    setRows(newRows);
   };
 
   const updateTempValue = (rowIndex: number, value: string) => {
-  const newRows = [...rows];
-  newRows[rowIndex] = {
-    ...newRows[rowIndex],
-    // tempValue: Number(value)  // convert input string to number
-    tempValue: value === "" ? 0 : Number(value)
-  };
-  setRows(newRows);
+    const newRows = [...rows];
+    const field = newRows[rowIndex].editingField;
+
+    newRows[rowIndex] = {
+      ...newRows[rowIndex],
+      // If we are editing 'task', keep it as a string. Otherwise, convert to Number.
+      tempValue: field === "task" ? value : (value === "" ? 0 : Number(value))
+    };
+    setRows(newRows);
   };
 
   const saveCellValue = (rowIndex: number) => {
@@ -90,7 +94,25 @@ function App() {
   // Optional: Reset the board for the new week? 
   // We can decide on that next.
   alert("Week archived successfully!");
-};
+  };
+
+  const addTask = () => {
+    const newRow: Row = {
+      id: Date.now().toString(),
+      task: "New Task",
+      goal: 3,
+      cells: new Array(7).fill(0),
+      streak: 0
+    };
+    setRows([...rows, newRow]);
+  };
+
+  const deleteRow = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this task?")) {
+      setRows(rows.filter(row => row.id !== id));
+    }
+  };
+
   useEffect(() => {
     localStorage.setItem("hmi_rows", JSON.stringify(rows));
     localStorage.setItem("hmi_weekOf", weekOf);
@@ -105,6 +127,8 @@ function App() {
             value={weekOf}
             onChange={(e) => setWeekOf(e.target.value)}
   />
+
+{/* ARCHIVE BUTTON */}
   <button 
     onClick={archiveCurrentWeek} 
     style={{ marginLeft: '10px', cursor: 'pointer' }}
@@ -112,6 +136,11 @@ function App() {
     Archive Week
   </button>
       </h3>
+
+{/* ADD ROW BUTTON */}
+<button onClick={addTask}>Add New Row</button>
+
+{/* TABLE */}
       <Grid
         days={days}
         rows={rows}
@@ -119,6 +148,7 @@ function App() {
         startEditingCell={startEditingCell}
         updateTempValue={updateTempValue}
         saveCellValue={saveCellValue}
+        deleteRow={deleteRow}
       />
       <div style={{ marginTop: '40px', borderTop: '2px solid #ccc', paddingTop: '20px' }}>
         <h2>Archive History</h2>

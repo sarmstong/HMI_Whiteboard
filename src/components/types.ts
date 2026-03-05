@@ -4,8 +4,8 @@ export type Row = {
   goal: number;
   streak: number;
   cells: number[];
-  editingField?: "goal" | "streak";
-  tempValue?: number;
+  editingField?: "goal" | "streak" | "task";
+  tempValue?: string | number;
 };
 
 export type HistoryEntry = {

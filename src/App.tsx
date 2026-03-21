@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 import type { Row, HistoryEntry } from "./components/types.ts";
 import { supabase } from "./lib/supabase.ts";
 import Grid from "./components/Grid.tsx";
-import LoginScreen from "./components/LoginScreen.tsx";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import "./App.css";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const SHARED_UID = "1d60c134-d231-4890-a11f-8739a6749bc7";
 
 const DEFAULT_ROWS: Row[] = [
   { id: "1", task: "Workout", goal: 5, streak: 0, cells: Array(7).fill(0) },
@@ -24,92 +23,47 @@ function getMondayOfCurrentWeek(): string {
 }
 
 function App() {
-  // ── Auth ──────────────────────────────────────────────────
-  const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setSession(session);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
   // ── App state ─────────────────────────────────────────────
+  const [dataLoading, setDataLoading] = useState(true);
   const [weekOf,  setWeekOf]  = useState(getMondayOfCurrentWeek());
   const [rows,    setRows]    = useState<Row[]>(DEFAULT_ROWS);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
-  // Load from Supabase when session is available
+  // Load from Supabase on mount
   useEffect(() => {
-    if (!session) return;
-    const uid = session.user.id;
-
     const load = async () => {
-      setDataLoading(true);
       const { data } = await supabase
         .from("app_state")
         .select("key, value")
-        .eq("user_id", uid);
+        .eq("user_id", SHARED_UID);
 
       if (data && data.length > 0) {
         const byKey: Record<string, unknown> = Object.fromEntries(data.map(d => [d.key, d.value]));
         if (byKey.rows)    setRows(byKey.rows    as Row[]);
         if (byKey.weekOf)  setWeekOf(byKey.weekOf as string);
         if (byKey.history) setHistory(byKey.history as HistoryEntry[]);
-      } else {
-        // First login — migrate existing localStorage data if present
-        const lsRows    = localStorage.getItem("hmi_rows");
-        const lsWeekOf  = localStorage.getItem("hmi_weekOf");
-        const lsHistory = localStorage.getItem("hmi_history");
-
-        if (lsRows) {
-          const migratedRows    = JSON.parse(lsRows) as Row[];
-          const migratedWeekOf  = lsWeekOf  || getMondayOfCurrentWeek();
-          const migratedHistory = lsHistory ? JSON.parse(lsHistory) as HistoryEntry[] : [];
-
-          setRows(migratedRows);
-          setWeekOf(migratedWeekOf);
-          setHistory(migratedHistory);
-
-          // Persist migration immediately
-          await supabase.from("app_state").upsert([
-            { user_id: uid, key: "rows",    value: migratedRows    },
-            { user_id: uid, key: "weekOf",  value: migratedWeekOf  },
-            { user_id: uid, key: "history", value: migratedHistory },
-          ]);
-          localStorage.removeItem("hmi_rows");
-          localStorage.removeItem("hmi_weekOf");
-          localStorage.removeItem("hmi_history");
-        }
       }
       setDataLoading(false);
     };
 
     load();
-  }, [session?.user.id]);
+  }, []);
 
   // Debounced sync to Supabase on state changes
   const syncTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    if (!session) return;
+    if (dataLoading) return;
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(async () => {
-      const uid = session.user.id;
       const { error } = await supabase.from("app_state").upsert([
-        { user_id: uid, key: "rows",    value: rows    },
-        { user_id: uid, key: "weekOf",  value: weekOf  },
-        { user_id: uid, key: "history", value: history },
+        { user_id: SHARED_UID, key: "rows",    value: rows    },
+        { user_id: SHARED_UID, key: "weekOf",  value: weekOf  },
+        { user_id: SHARED_UID, key: "history", value: history },
       ]);
       if (error) console.error("Supabase sync error:", error);
     }, 1500);
     return () => clearTimeout(syncTimer.current);
-  }, [rows, weekOf, history, session]);
+  }, [rows, weekOf, history, dataLoading]);
 
   // ── Actions ───────────────────────────────────────────────
   const toggleCell = (row: number, col: number) => {
@@ -208,9 +162,7 @@ function App() {
     : 0;
 
   // ── Render ────────────────────────────────────────────────
-  if (authLoading) return <div className="app-loading">Loading…</div>;
-  if (!session)    return <LoginScreen />;
-  if (dataLoading) return <div className="app-loading">Loading your data…</div>;
+  if (dataLoading) return <div className="app-loading">Loading…</div>;
 
   return (
     <div className="app">
@@ -219,16 +171,6 @@ function App() {
         <div className="week-selector">
           <span className="week-label">Week of</span>
           <input type="date" value={weekOf} onChange={(e) => setWeekOf(e.target.value)} />
-        </div>
-        <div style={{ marginLeft: "auto" }}>
-          <button
-            className="icon-btn"
-            onClick={() => supabase.auth.signOut()}
-            title={`Sign out (${session.user.email})`}
-            style={{ fontSize: "0.8rem", padding: "5px 10px" }}
-          >
-            Sign out
-          </button>
         </div>
       </header>
 

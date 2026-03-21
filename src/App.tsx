@@ -1,14 +1,25 @@
 import { useEffect, useState } from "react";
 import type { Row, HistoryEntry } from "./components/types.ts";
 import Grid from "./components/Grid.tsx";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import "./App.css";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function getMondayOfCurrentWeek(): string {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diff);
+  return monday.toISOString().split("T")[0];
+}
 
 
 
 function App() {
   const [weekOf, setWeekOf] = useState<string>(() => {
-    return localStorage.getItem("hmi_weekOf") || "";
+    return localStorage.getItem("hmi_weekOf") || getMondayOfCurrentWeek();
   });
 
   const [rows, setRows] = useState<Row[]>(() => {
@@ -52,12 +63,12 @@ function App() {
 
   const updateTempValue = (rowIndex: number, value: string) => {
     const newRows = [...rows];
-    const field = newRows[rowIndex].editingField;
+  
 
     newRows[rowIndex] = {
       ...newRows[rowIndex],
-      // If we are editing 'task', keep it as a string. Otherwise, convert to Number.
-      tempValue: field === "task" ? value : (value === "" ? 0 : Number(value))
+      // Keep it as a string while typing so we don't lose the minus sign
+      tempValue: value 
     };
     setRows(newRows);
   };
@@ -67,33 +78,45 @@ function App() {
     const row = newRows[rowIndex];
 
     if (row.editingField) {
+      // Determine if we should save as a string (task) or number (goal/streak)
+      const finalValue = row.editingField === "task" 
+        ? String(row.tempValue) 
+        : Number(row.tempValue || 0);
+
       newRows[rowIndex] = {
         ...row,
-        [row.editingField]: row.tempValue,  // update goal or streak
-        tempValue: undefined,               // clear tempValue
-        editingField: undefined             // stop editing
+        [row.editingField]: finalValue,
+        tempValue: undefined,
+        editingField: undefined
       };
       setRows(newRows);
     }
   };
 
-  const archiveCurrentWeek = () => {
-  if (!weekOf) {
-    alert("Please set a 'Week of' date before saving.");
-    return;
-  }
-
-  const newEntry: HistoryEntry = {
-    weekOf: weekOf,
-    savedAt: new Date().toISOString(),
-    data: [...rows], // Shallow copy of the current rows
-  };
-
-  setHistory((prev) => [...prev, newEntry]);
-  
-  // Optional: Reset the board for the new week? 
-  // We can decide on that next.
-  alert("Week archived successfully!");
+  const downloadCSV = () => {
+    const header = "weekOf,task,goal,streak,day1,day2,day3,day4,day5,day6,day7,completed,goalMet";
+    const csvRows = history.flatMap((entry) =>
+      entry.data.map((row) => {
+        const completed = row.cells.filter((c) => c === 1).length;
+        const goalMet = completed >= row.goal;
+        return [
+          entry.weekOf,
+          `"${row.task.replace(/"/g, '""')}"`,
+          row.goal,
+          row.streak,
+          ...row.cells,
+          completed,
+          goalMet,
+        ].join(",");
+      })
+    );
+    const csv = [header, ...csvRows].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "hmi-history.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const addTask = () => {
@@ -113,79 +136,134 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    localStorage.setItem("hmi_rows", JSON.stringify(rows));
-    localStorage.setItem("hmi_weekOf", weekOf);
-    }, [rows, weekOf]);
+  const [visualizingId, setVisualizingId] = useState<string | null>(null);
+
+  const visualizingRow = visualizingId ? rows.find(r => r.id === visualizingId) ?? null : null;
+
+  const visualChartData = visualizingId
+    ? history
+        .map((entry) => {
+          const row = entry.data.find((r) => r.id === visualizingId);
+          if (!row) return null;
+          return { weekOf: entry.weekOf, completed: row.cells.filter((c) => c === 1).length };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+        .sort((a, b) => a.weekOf.localeCompare(b.weekOf))
+    : [];
+
+  const maxStreak = visualizingRow
+    ? Math.max(
+        visualizingRow.streak,
+        ...history.map((e) => e.data.find((r) => r.id === visualizingId)?.streak ?? 0),
+        0
+      )
+    : 0;
+
+  const endWeek = () => {
+    if (!window.confirm("End the week? This will update streaks and reset the board.")) {
+      return;
+    }
+
+    const updatedRows = rows.map((row) => {
+      const completedDays = row.cells.filter((cell) => cell === 1).length;
+      const isGoalMet = completedDays >= row.goal;
+
+      let newStreak = row.streak;
+      if (isGoalMet) {
+        newStreak = row.streak < 0 ? 1 : row.streak + 1;
+      } else {
+        newStreak = row.streak > 0 ? 0 : row.streak - 1;
+      }
+
+      return { ...row, streak: newStreak, cells: new Array(7).fill(0) };
+    });
+
+    // Archive: save the week's completion data with updated streaks
+    if (weekOf) {
+      const archivedData = updatedRows.map((updated, i) => ({
+        ...updated,
+        cells: rows[i].cells,
+      }));
+      const entry: HistoryEntry = {
+        weekOf,
+        savedAt: new Date().toISOString(),
+        data: archivedData,
+      };
+      setHistory((prev) => [...prev, entry]);
+    }
+
+    setRows(updatedRows);
+  };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>HMI Whiteboard</h2>
-      <h3>Week of: {""}
+    <div className="app">
+      <header className="app-header">
+        <h2 className="app-title">HMI Whiteboard</h2>
+        <div className="week-selector">
+          <span className="week-label">Week of</span>
           <input
             type="date"
             value={weekOf}
             onChange={(e) => setWeekOf(e.target.value)}
-  />
+          />
+        </div>
+      </header>
 
-{/* ARCHIVE BUTTON */}
-  <button 
-    onClick={archiveCurrentWeek} 
-    style={{ marginLeft: '10px', cursor: 'pointer' }}
-  >
-    Archive Week
-  </button>
-      </h3>
+      <div className="toolbar">
+        <button className="btn-primary" onClick={addTask}>+ Add Task</button>
+        <button className="btn-danger" onClick={endWeek}>End Week</button>
+      </div>
 
-{/* ADD ROW BUTTON */}
-<button onClick={addTask}>Add New Row</button>
-
-{/* TABLE */}
       <Grid
         days={days}
+        weekOf={weekOf}
         rows={rows}
         toggleCell={toggleCell}
         startEditingCell={startEditingCell}
         updateTempValue={updateTempValue}
         saveCellValue={saveCellValue}
         deleteRow={deleteRow}
+        onVisualize={setVisualizingId}
       />
-      <div style={{ marginTop: '40px', borderTop: '2px solid #ccc', paddingTop: '20px' }}>
-        <h2>Archive History</h2>
-        {history.length === 0 ? (
-          <p>No archived weeks yet.</p>
-        ) : (
-          history.map((entry, index) => (
-            <details key={index} style={{ marginBottom: '10px', border: '1px solid #ddd', padding: '10px' }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                Week of: {entry.weekOf} (Saved: {new Date(entry.savedAt).toLocaleDateString()})
-              </summary>
-              <table style={{ marginTop: '10px', width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th>Task</th>
-                    <th>Goal</th>
-                    <th>Completed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entry.data.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.task}</td>
-                      <td>{row.goal}</td>
-                      <td>
-                        {row.cells.filter(c => c === 1).length >= row.goal ? "✅" : "❌"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </details>
-          ))
+
+      {visualizingRow && (
+        <div className="modal-backdrop" onClick={() => setVisualizingId(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setVisualizingId(null)}>✕</button>
+            <h3 className="modal-title">{visualizingRow.task}</h3>
+            <p className="modal-stat">Max Streak: <strong>{maxStreak}</strong></p>
+            {visualChartData.length === 0 ? (
+              <p className="modal-empty">No history yet — end a week to start tracking.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={visualChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="weekOf" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 13 }}
+                    cursor={{ stroke: 'var(--border)' }}
+                  />
+                  <Line type="monotone" dataKey="completed" name="Completed" stroke="var(--success)" strokeWidth={2} dot={{ r: 4, fill: 'var(--success)', strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="archive-section">
+        <div className="archive-header">
+          <span className="archive-title">Archive History</span>
+          {history.length > 0 && (
+            <button onClick={downloadCSV}>Download CSV</button>
+          )}
+        </div>
+        {history.length === 0 && (
+          <p className="archive-empty">No archived weeks yet — end a week to archive automatically.</p>
         )}
       </div>
     </div>
-    
   );
 }
 

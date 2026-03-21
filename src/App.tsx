@@ -97,11 +97,9 @@ function App() {
   // Debounced sync to Supabase on state changes
   const syncTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    if (!session) { console.log("sync: no session, skipping"); return; }
-    console.log("sync: scheduling upsert for", session.user.email);
+    if (!session) return;
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(async () => {
-      console.log("sync: upserting now...");
       const uid = session.user.id;
       const { error } = await supabase.from("app_state").upsert([
         { user_id: uid, key: "rows",    value: rows    },
@@ -109,7 +107,6 @@ function App() {
         { user_id: uid, key: "history", value: history },
       ]);
       if (error) console.error("Supabase sync error:", error);
-      else console.log("sync: upsert successful");
     }, 1500);
     return () => clearTimeout(syncTimer.current);
   }, [rows, weekOf, history, session]);

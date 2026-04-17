@@ -9,6 +9,7 @@ type GridProps = {
   updateTempValue: (rowIndex: number, value: string) => void;
   saveCellValue: (rowIndex: number) => void;
   deleteRow: (id: string) => void;
+  togglePause: (id: string) => void;
   onVisualize: (id: string) => void;
 };
 
@@ -25,7 +26,7 @@ function getDayDates(weekOf: string): number[] {
   });
 }
 
-function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValue, saveCellValue, deleteRow, onVisualize }: GridProps) {
+function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValue, saveCellValue, deleteRow, togglePause, onVisualize }: GridProps) {
   const dayDates = getDayDates(weekOf);
 
   return (
@@ -44,6 +45,7 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
           <th>Streak</th>
           <th></th>
           <th></th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -53,7 +55,7 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
           const streakClass = row.streak > 0 ? "streak-pos" : row.streak < 0 ? "streak-neg" : "streak-zero";
 
           return (
-            <tr key={rowIndex}>
+            <tr key={rowIndex} className={row.paused ? "row-paused" : undefined}>
               {/* Task */}
               <td onClick={() => startEditingCell(rowIndex, "task")} style={{ cursor: "pointer" }}>
                 {row.editingField === "task" ? (
@@ -117,6 +119,26 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
                     style={{ width: 56 }}
                   />
                 ) : (row.streak > 0 ? `+${row.streak}` : row.streak)}
+              </td>
+
+              {/* Pause */}
+              <td>
+                <button
+                  className={`icon-btn${row.paused ? " paused" : ""}`}
+                  onClick={() => togglePause(row.id)}
+                  title={row.paused ? "Resume this task" : "Pause this task (skip streak this week)"}
+                >
+                  {row.paused ? (
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <polygon points="2,1 13,7 2,13" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <rect x="2" y="1" width="4" height="12" rx="1" />
+                      <rect x="8" y="1" width="4" height="12" rx="1" />
+                    </svg>
+                  )}
+                </button>
               </td>
 
               {/* Visualize */}

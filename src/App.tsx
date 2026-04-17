@@ -105,10 +105,22 @@ function App() {
     }
   };
 
+  const togglePause = (id: string) => {
+    setRows(rows.map(row => row.id === id ? { ...row, paused: !row.paused } : row));
+  };
+
+  const togglePauseAll = () => {
+    const allPaused = rows.every(r => r.paused);
+    setRows(rows.map(row => ({ ...row, paused: !allPaused })));
+  };
+
   const endWeek = () => {
     if (!window.confirm("End the week? This will update streaks and reset the board.")) return;
 
     const updatedRows = rows.map((row) => {
+      if (row.paused) {
+        return { ...row, cells: new Array(7).fill(0), paused: false };
+      }
       const completedDays = row.cells.filter((cell) => cell === 1).length;
       const isGoalMet = completedDays >= row.goal;
       let newStreak = row.streak;
@@ -176,6 +188,9 @@ function App() {
 
       <div className="toolbar">
         <button className="btn-primary" onClick={addTask}>+ Add Task</button>
+        <button className="btn-pause" onClick={togglePauseAll}>
+          {rows.every(r => r.paused) ? "▶ Resume All" : "⏸ Pause All"}
+        </button>
         <button className="btn-danger" onClick={endWeek}>End Week</button>
       </div>
 
@@ -188,6 +203,7 @@ function App() {
         updateTempValue={updateTempValue}
         saveCellValue={saveCellValue}
         deleteRow={deleteRow}
+        togglePause={togglePause}
         onVisualize={setVisualizingId}
       />
 

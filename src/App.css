@@ -121,6 +121,18 @@
   border-color: var(--danger);
 }
 
+.btn-pause {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.btn-pause:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+
 /* ── Grid table ──────────────────────────────────────────── */
 .grid-table {
   width: 100%;
@@ -214,6 +226,23 @@
 
 .icon-btn.danger:hover {
   color: var(--danger);
+}
+
+.icon-btn.paused {
+  color: #e09800;
+}
+
+.icon-btn.paused:hover {
+  color: var(--success);
+}
+
+/* ── Paused row ──────────────────────────────────────────── */
+.row-paused {
+  opacity: 0.45;
+}
+
+.row-paused:hover {
+  opacity: 0.65;
 }
 
 /* ── Archive section ─────────────────────────────────────── */

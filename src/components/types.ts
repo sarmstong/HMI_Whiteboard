@@ -4,6 +4,7 @@ export type Row = {
   goal: number;
   streak: number;
   cells: number[];
+  paused?: boolean;
   editingField?: "goal" | "streak" | "task";
   tempValue?: string | number;
 };

@@ -13,13 +13,16 @@ const DEFAULT_ROWS: Row[] = [
   { id: "2", task: "Code",    goal: 7, streak: 0, cells: Array(7).fill(0) },
 ];
 
-function getMondayOfCurrentWeek(): string {
-  const today = new Date();
-  const day = today.getDay();
+function getMondayOf(date: Date): string {
+  const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diff);
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diff);
   return monday.toISOString().split("T")[0];
+}
+
+function getMondayOfCurrentWeek(): string {
+  return getMondayOf(new Date());
 }
 
 function App() {
@@ -182,7 +185,7 @@ function App() {
         <h2 className="app-title">HMI Whiteboard</h2>
         <div className="week-selector">
           <span className="week-label">Week of</span>
-          <input type="date" value={weekOf} onChange={(e) => setWeekOf(e.target.value)} />
+          <input type="date" value={weekOf} onChange={(e) => setWeekOf(getMondayOf(new Date(e.target.value + "T00:00:00")))} />
         </div>
       </header>
 

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { Row, HistoryEntry } from "./components/types.ts";
 import { supabase } from "./lib/supabase.ts";
 import Grid from "./components/Grid.tsx";
+import LoginScreen from "./components/LoginScreen.tsx";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import "./App.css";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const SHARED_UID = "1d60c134-d231-4890-a11f-8739a6749bc7";
 
 const DEFAULT_ROWS: Row[] = [
   { id: "1", task: "Workout", goal: 5, streak: 0, cells: Array(7).fill(0) },
@@ -26,6 +26,12 @@ function getMondayOfCurrentWeek(): string {
 }
 
 function App() {
+  // ── Auth state ────────────────────────────────────────────
+  const savedUser = localStorage.getItem("hmi-user");
+  const [activeUser, setActiveUser] = useState<{ username: string; userId: string } | null>(
+    savedUser ? JSON.parse(savedUser) : null
+  );
+
   // ── App state ─────────────────────────────────────────────
   const [dataLoading, setDataLoading] = useState(true);
   const [syncEnabled, setSyncEnabled] = useState(false);
@@ -33,13 +39,20 @@ function App() {
   const [rows,    setRows]    = useState<Row[]>(DEFAULT_ROWS);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
-  // Load from Supabase on mount
+  // Load from Supabase on mount (or when user changes)
   useEffect(() => {
+    if (!activeUser) return;
+    setDataLoading(true);
+    setSyncEnabled(false);
+    setRows(DEFAULT_ROWS);
+    setWeekOf(getMondayOfCurrentWeek());
+    setHistory([]);
+
     const load = async () => {
       const { data, error } = await supabase
         .from("app_state")
         .select("key, value")
-        .eq("user_id", SHARED_UID);
+        .eq("user_id", activeUser.userId);
 
       if (error) {
         console.error("Supabase load error:", error);
@@ -59,7 +72,7 @@ function App() {
     };
 
     load();
-  }, []);
+  }, [activeUser]);
 
   // Debounced sync to Supabase on state changes
   const syncTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -68,9 +81,9 @@ function App() {
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(async () => {
       const { error } = await supabase.from("app_state").upsert([
-        { user_id: SHARED_UID, key: "rows",    value: rows    },
-        { user_id: SHARED_UID, key: "weekOf",  value: weekOf  },
-        { user_id: SHARED_UID, key: "history", value: history },
+        { user_id: activeUser!.userId, key: "rows",    value: rows    },
+        { user_id: activeUser!.userId, key: "weekOf",  value: weekOf  },
+        { user_id: activeUser!.userId, key: "history", value: history },
       ]);
       if (error) console.error("Supabase sync error:", error);
     }, 1500);
@@ -185,7 +198,13 @@ function App() {
     ? Math.max(visualizingRow.streak, ...history.map((e) => e.data.find((r) => r.id === visualizingId)?.streak ?? 0), 0)
     : 0;
 
+  const switchUser = () => {
+    localStorage.removeItem("hmi-user");
+    setActiveUser(null);
+  };
+
   // ── Render ────────────────────────────────────────────────
+  if (!activeUser) return <LoginScreen onLogin={(username, userId) => setActiveUser({ username, userId })} />;
   if (dataLoading) return <div className="app-loading">Loading…</div>;
 
   return (
@@ -196,6 +215,7 @@ function App() {
           <span className="week-label">Week of</span>
           <input type="date" value={weekOf} onChange={(e) => setWeekOf(getMondayOf(new Date(e.target.value + "T00:00:00")))} />
         </div>
+        <button className="btn-switch-user" onClick={switchUser} title="Switch user">{activeUser.username}</button>
       </header>
 
       <div className="toolbar">

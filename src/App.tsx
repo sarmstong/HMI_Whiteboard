@@ -28,6 +28,7 @@ function getMondayOfCurrentWeek(): string {
 function App() {
   // ── App state ─────────────────────────────────────────────
   const [dataLoading, setDataLoading] = useState(true);
+  const [syncEnabled, setSyncEnabled] = useState(false);
   const [weekOf,  setWeekOf]  = useState(getMondayOfCurrentWeek());
   const [rows,    setRows]    = useState<Row[]>(DEFAULT_ROWS);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -35,10 +36,17 @@ function App() {
   // Load from Supabase on mount
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("app_state")
         .select("key, value")
         .eq("user_id", SHARED_UID);
+
+      if (error) {
+        console.error("Supabase load error:", error);
+        setDataLoading(false);
+        // Do NOT enable sync — Supabase unreachable, avoid overwriting with defaults
+        return;
+      }
 
       if (data && data.length > 0) {
         const byKey: Record<string, unknown> = Object.fromEntries(data.map(d => [d.key, d.value]));
@@ -47,6 +55,7 @@ function App() {
         if (byKey.history) setHistory(byKey.history as HistoryEntry[]);
       }
       setDataLoading(false);
+      setSyncEnabled(true);
     };
 
     load();
@@ -55,7 +64,7 @@ function App() {
   // Debounced sync to Supabase on state changes
   const syncTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    if (dataLoading) return;
+    if (dataLoading || !syncEnabled) return;
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(async () => {
       const { error } = await supabase.from("app_state").upsert([

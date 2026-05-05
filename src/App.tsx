@@ -39,6 +39,26 @@ function App() {
   const [rows,    setRows]    = useState<Row[]>(DEFAULT_ROWS);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
+  // ── Backup helpers ───────────────────────────────────────
+  const writeSnapshotBackup = async (snapshotRows: Row[], snapshotWeekOf: string, snapshotHistory: HistoryEntry[]) => {
+    if (!activeUser) return;
+    const lastBackupKey = `hmi-last-backup-${activeUser.userId}`;
+    const { error } = await supabase.from("app_state_backups").insert({
+      user_id: activeUser.userId,
+      rows: snapshotRows,
+      week_of: snapshotWeekOf,
+      history: snapshotHistory,
+    });
+    if (error) { console.error("Snapshot backup error:", error); return; }
+    localStorage.setItem(lastBackupKey, new Date().toDateString());
+    // Prune snapshots older than 90 days
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    await supabase.from("app_state_backups").delete()
+      .eq("user_id", activeUser.userId)
+      .lt("created_at", cutoff.toISOString());
+  };
+
   // Load from Supabase on mount (or when user changes)
   useEffect(() => {
     if (!activeUser) return;
@@ -48,6 +68,17 @@ function App() {
     setWeekOf(getMondayOfCurrentWeek());
     setHistory([]);
 
+    const shadowKey = `hmi-shadow-${activeUser.userId}`;
+    const lastBackupKey = `hmi-last-backup-${activeUser.userId}`;
+
+    const restoreFromShadow = (): { rows: Row[]; weekOf: string; history: HistoryEntry[] } | null => {
+      try {
+        const raw = localStorage.getItem(shadowKey);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    };
+
     const load = async () => {
       const { data, error } = await supabase
         .from("app_state")
@@ -56,19 +87,48 @@ function App() {
 
       if (error) {
         console.error("Supabase load error:", error);
+        const shadow = restoreFromShadow();
+        if (shadow) {
+          if (shadow.rows)    setRows(shadow.rows);
+          if (shadow.weekOf)  setWeekOf(shadow.weekOf);
+          if (shadow.history) setHistory(shadow.history);
+          console.warn("Supabase error — displaying data from local shadow copy (sync disabled).");
+        }
         setDataLoading(false);
-        // Do NOT enable sync — Supabase unreachable, avoid overwriting with defaults
+        // Do NOT enable sync — Supabase unreachable, avoid overwriting with recovered data
         return;
       }
 
+      let loadedRows: Row[] = DEFAULT_ROWS;
+      let loadedWeekOf: string = getMondayOfCurrentWeek();
+      let loadedHistory: HistoryEntry[] = [];
+
       if (data && data.length > 0) {
         const byKey: Record<string, unknown> = Object.fromEntries(data.map(d => [d.key, d.value]));
-        if (byKey.rows)    setRows(byKey.rows    as Row[]);
-        if (byKey.weekOf)  setWeekOf(byKey.weekOf as string);
-        if (byKey.history) setHistory(byKey.history as HistoryEntry[]);
+        if (byKey.rows)    loadedRows    = byKey.rows    as Row[];
+        if (byKey.weekOf)  loadedWeekOf  = byKey.weekOf  as string;
+        if (byKey.history) loadedHistory = byKey.history as HistoryEntry[];
+      } else {
+        // Supabase returned empty — restore from shadow if available (protects against accidental data deletion)
+        const shadow = restoreFromShadow();
+        if (shadow) {
+          if (shadow.rows)    loadedRows    = shadow.rows;
+          if (shadow.weekOf)  loadedWeekOf  = shadow.weekOf;
+          if (shadow.history) loadedHistory = shadow.history;
+          console.warn("Supabase returned no data — restored from local shadow copy.");
+        }
       }
+
+      setRows(loadedRows);
+      setWeekOf(loadedWeekOf);
+      setHistory(loadedHistory);
       setDataLoading(false);
       setSyncEnabled(true);
+
+      // Write daily snapshot to backup table if not already done today
+      if (localStorage.getItem(lastBackupKey) !== new Date().toDateString()) {
+        writeSnapshotBackup(loadedRows, loadedWeekOf, loadedHistory);
+      }
     };
 
     load();
@@ -85,10 +145,12 @@ function App() {
         { user_id: activeUser!.userId, key: "weekOf",  value: weekOf  },
         { user_id: activeUser!.userId, key: "history", value: history },
       ]);
-      if (error) console.error("Supabase sync error:", error);
+      if (error) { console.error("Supabase sync error:", error); return; }
+      // Update localStorage shadow copy on every successful sync
+      localStorage.setItem(`hmi-shadow-${activeUser!.userId}`, JSON.stringify({ rows, weekOf, history }));
     }, 1500);
     return () => clearTimeout(syncTimer.current);
-  }, [rows, weekOf, history, dataLoading]);
+  }, [rows, weekOf, history, dataLoading, syncEnabled]);
 
   // ── Actions ───────────────────────────────────────────────
   const toggleCell = (row: number, col: number) => {
@@ -157,11 +219,16 @@ function App() {
       return { ...row, streak: newStreak, cells: new Array(7).fill(0) };
     });
 
-    if (weekOf) {
-      const archivedData = updatedRows.map((updated, i) => ({ ...updated, cells: rows[i].cells }));
-      setHistory((prev) => [...prev, { weekOf, savedAt: new Date().toISOString(), data: archivedData }]);
-    }
+    const archivedData = updatedRows.map((updated, i) => ({ ...updated, cells: rows[i].cells }));
+    const newHistory = weekOf
+      ? [...history, { weekOf, savedAt: new Date().toISOString(), data: archivedData }]
+      : history;
+
+    if (weekOf) setHistory(newHistory);
     setRows(updatedRows);
+
+    // Snapshot before the board resets — preserves the completed week in backup history
+    writeSnapshotBackup(updatedRows, weekOf, newHistory);
   };
 
   const downloadCSV = () => {

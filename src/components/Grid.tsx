@@ -11,6 +11,7 @@ type GridProps = {
   deleteRow: (id: string) => void;
   togglePause: (id: string) => void;
   onVisualize: (id: string) => void;
+  readOnly?: boolean;
 };
 
 const dayCellClass = ["day-empty", "day-done", "day-fail"];
@@ -26,7 +27,7 @@ function getDayDates(weekOf: string): number[] {
   });
 }
 
-function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValue, saveCellValue, deleteRow, togglePause, onVisualize }: GridProps) {
+function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValue, saveCellValue, deleteRow, togglePause, onVisualize, readOnly }: GridProps) {
   const dayDates = getDayDates(weekOf);
 
   return (
@@ -43,9 +44,9 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
           ))}
           <th>Done</th>
           <th>Streak</th>
-          <th></th>
-          <th></th>
-          <th></th>
+          {!readOnly && <th></th>}
+          {!readOnly && <th></th>}
+          {!readOnly && <th></th>}
         </tr>
       </thead>
       <tbody>
@@ -57,8 +58,8 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
           return (
             <tr key={rowIndex} className={row.paused ? "row-paused" : undefined}>
               {/* Task */}
-              <td onClick={() => startEditingCell(rowIndex, "task")} style={{ cursor: "pointer" }}>
-                {row.editingField === "task" ? (
+              <td onClick={readOnly ? undefined : () => startEditingCell(rowIndex, "task")} style={readOnly ? undefined : { cursor: "pointer" }}>
+                {!readOnly && row.editingField === "task" ? (
                   <input
                     autoFocus
                     type="text"
@@ -71,8 +72,8 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
               </td>
 
               {/* Goal */}
-              <td onClick={() => startEditingCell(rowIndex, "goal")} style={{ cursor: "pointer" }}>
-                {row.editingField === "goal" ? (
+              <td onClick={readOnly ? undefined : () => startEditingCell(rowIndex, "goal")} style={readOnly ? undefined : { cursor: "pointer" }}>
+                {!readOnly && row.editingField === "goal" ? (
                   <input
                     autoFocus
                     type="number"
@@ -90,8 +91,8 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
               {days.map((_, colIndex) => (
                 <td
                   key={colIndex}
-                  onClick={() => toggleCell(rowIndex, colIndex)}
-                  className={`day-cell ${dayCellClass[row.cells[colIndex]]}`}
+                  onClick={readOnly ? undefined : () => toggleCell(rowIndex, colIndex)}
+                  className={`day-cell ${dayCellClass[row.cells[colIndex]]}${readOnly ? " day-cell-readonly" : ""}`}
                 >
                   {daySymbols[row.cells[colIndex]]}
                 </td>
@@ -105,10 +106,10 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
               {/* Streak */}
               <td
                 className={streakClass}
-                onClick={() => startEditingCell(rowIndex, "streak")}
-                style={{ cursor: "pointer" }}
+                onClick={readOnly ? undefined : () => startEditingCell(rowIndex, "streak")}
+                style={readOnly ? undefined : { cursor: "pointer" }}
               >
-                {row.editingField === "streak" ? (
+                {!readOnly && row.editingField === "streak" ? (
                   <input
                     autoFocus
                     type="number"
@@ -122,44 +123,50 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
               </td>
 
               {/* Pause */}
-              <td>
-                <button
-                  className={`icon-btn${row.paused ? " paused" : ""}`}
-                  onClick={() => togglePause(row.id)}
-                  title={row.paused ? "Resume this task" : "Pause this task (skip streak this week)"}
-                >
-                  {row.paused ? (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                      <polygon points="2,1 13,7 2,13" />
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                      <rect x="2" y="1" width="4" height="12" rx="1" />
-                      <rect x="8" y="1" width="4" height="12" rx="1" />
-                    </svg>
-                  )}
-                </button>
-              </td>
+              {!readOnly && (
+                <td>
+                  <button
+                    className={`icon-btn${row.paused ? " paused" : ""}`}
+                    onClick={() => togglePause(row.id)}
+                    title={row.paused ? "Resume this task" : "Pause this task (skip streak this week)"}
+                  >
+                    {row.paused ? (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                        <polygon points="2,1 13,7 2,13" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                        <rect x="2" y="1" width="4" height="12" rx="1" />
+                        <rect x="8" y="1" width="4" height="12" rx="1" />
+                      </svg>
+                    )}
+                  </button>
+                </td>
+              )}
 
               {/* Visualize */}
-              <td>
-                <button className="icon-btn" onClick={() => onVisualize(row.id)} title="Visualize">
-                  <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="1,14 5,8 8,11 12,5 17,7" />
-                  </svg>
-                </button>
-              </td>
+              {!readOnly && (
+                <td>
+                  <button className="icon-btn" onClick={() => onVisualize(row.id)} title="Visualize">
+                    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="1,14 5,8 8,11 12,5 17,7" />
+                    </svg>
+                  </button>
+                </td>
+              )}
 
               {/* Delete */}
-              <td>
-                <button className="icon-btn danger" onClick={() => deleteRow(row.id)} title="Delete task">
-                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-                    <polyline points="1,3 14,3" /><polyline points="5,3 5,1 10,1 10,3" />
-                    <path d="M2 3 l1 10 a1 1 0 0 0 1 1 h7 a1 1 0 0 0 1-1 l1-10" />
-                    <line x1="5.5" y1="6.5" x2="5.5" y2="11" /><line x1="9.5" y1="6.5" x2="9.5" y2="11" />
-                  </svg>
-                </button>
-              </td>
+              {!readOnly && (
+                <td>
+                  <button className="icon-btn danger" onClick={() => deleteRow(row.id)} title="Delete task">
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+                      <polyline points="1,3 14,3" /><polyline points="5,3 5,1 10,1 10,3" />
+                      <path d="M2 3 l1 10 a1 1 0 0 0 1 1 h7 a1 1 0 0 0 1-1 l1-10" />
+                      <line x1="5.5" y1="6.5" x2="5.5" y2="11" /><line x1="9.5" y1="6.5" x2="9.5" y2="11" />
+                    </svg>
+                  </button>
+                </td>
+              )}
             </tr>
           );
         })}

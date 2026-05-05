@@ -25,6 +25,17 @@ function getMondayOfCurrentWeek(): string {
   return getMondayOf(new Date());
 }
 
+function formatWeekRange(mondayStr: string): string {
+  const monday = new Date(mondayStr + "T00:00:00");
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const startOpts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const endOpts: Intl.DateTimeFormatOptions = sunday.getMonth() === monday.getMonth()
+    ? { day: "numeric" }
+    : { month: "short", day: "numeric" };
+  return `${monday.toLocaleDateString(undefined, startOpts)}–${sunday.toLocaleDateString(undefined, endOpts)}, ${monday.getFullYear()}`;
+}
+
 function App() {
   // ── Auth state ────────────────────────────────────────────
   const savedUser = localStorage.getItem("hmi-user");
@@ -38,6 +49,7 @@ function App() {
   const [weekOf,  setWeekOf]  = useState(getMondayOfCurrentWeek());
   const [rows,    setRows]    = useState<Row[]>(DEFAULT_ROWS);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [viewingIndex, setViewingIndex] = useState<number | null>(null);
 
   // ── Backup helpers ───────────────────────────────────────
   const writeSnapshotBackup = async (snapshotRows: Row[], snapshotWeekOf: string, snapshotHistory: HistoryEntry[]) => {
@@ -226,6 +238,7 @@ function App() {
 
     if (weekOf) setHistory(newHistory);
     setRows(updatedRows);
+    setViewingIndex(null);
 
     // Snapshot before the board resets — preserves the completed week in backup history
     writeSnapshotBackup(updatedRows, weekOf, newHistory);
@@ -270,6 +283,23 @@ function App() {
     setActiveUser(null);
   };
 
+  // ── History navigation ────────────────────────────────────
+  const isViewingHistory = viewingIndex !== null;
+  const displayWeekOf = isViewingHistory ? history[viewingIndex!].weekOf : weekOf;
+  const displayRows   = isViewingHistory ? history[viewingIndex!].data   : rows;
+  const canGoPrev = isViewingHistory ? viewingIndex! > 0 : history.length > 0;
+  const canGoNext = isViewingHistory;
+
+  const goToPrevWeek = () => {
+    if (isViewingHistory) { if (viewingIndex! > 0) setViewingIndex(viewingIndex! - 1); }
+    else if (history.length > 0) setViewingIndex(history.length - 1);
+  };
+  const goToNextWeek = () => {
+    if (!isViewingHistory) return;
+    if (viewingIndex! < history.length - 1) setViewingIndex(viewingIndex! + 1);
+    else setViewingIndex(null);
+  };
+
   // ── Render ────────────────────────────────────────────────
   if (!activeUser) return <LoginScreen onLogin={(username, userId) => setActiveUser({ username, userId })} />;
   if (dataLoading) return <div className="app-loading">Loading…</div>;
@@ -278,25 +308,32 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h2 className="app-title">HMI Whiteboard</h2>
-        <div className="week-selector">
-          <span className="week-label">Week of</span>
-          <input type="date" value={weekOf} onChange={(e) => setWeekOf(getMondayOf(new Date(e.target.value + "T00:00:00")))} />
+        <div className="week-nav">
+          <button className="week-nav-btn" onClick={goToPrevWeek} disabled={!canGoPrev}>‹</button>
+          <div className="week-nav-center">
+            <span className="week-label">Week of</span>
+            <span className="week-range">{formatWeekRange(displayWeekOf)}</span>
+            {isViewingHistory && <span className="history-badge">archived</span>}
+          </div>
+          <button className="week-nav-btn" onClick={goToNextWeek} disabled={!canGoNext}>›</button>
         </div>
         <button className="btn-switch-user" onClick={switchUser} title="Switch user">{activeUser.username}</button>
       </header>
 
-      <div className="toolbar">
-        <button className="btn-primary" onClick={addTask}>+ Add Task</button>
-        <button className="btn-pause" onClick={togglePauseAll}>
-          {rows.every(r => r.paused) ? "▶ Resume All" : "⏸ Pause All"}
-        </button>
-        <button className="btn-danger" onClick={endWeek}>End Week</button>
-      </div>
+      {!isViewingHistory && (
+        <div className="toolbar">
+          <button className="btn-primary" onClick={addTask}>+ Add Task</button>
+          <button className="btn-pause" onClick={togglePauseAll}>
+            {rows.every(r => r.paused) ? "▶ Resume All" : "⏸ Pause All"}
+          </button>
+          <button className="btn-danger" onClick={endWeek}>End Week</button>
+        </div>
+      )}
 
       <Grid
         days={days}
-        weekOf={weekOf}
-        rows={rows}
+        weekOf={displayWeekOf}
+        rows={displayRows}
         toggleCell={toggleCell}
         startEditingCell={startEditingCell}
         updateTempValue={updateTempValue}
@@ -304,6 +341,7 @@ function App() {
         deleteRow={deleteRow}
         togglePause={togglePause}
         onVisualize={setVisualizingId}
+        readOnly={isViewingHistory}
       />
 
       {visualizingRow && (

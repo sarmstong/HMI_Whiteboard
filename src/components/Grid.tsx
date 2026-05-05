@@ -43,7 +43,7 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
             </th>
           ))}
           <th>Done</th>
-          <th>Streak</th>
+          {!readOnly && <th>Streak</th>}
           {!readOnly && <th></th>}
           {!readOnly && <th></th>}
           {!readOnly && <th></th>}
@@ -104,23 +104,25 @@ function Grid({ rows, days, weekOf, toggleCell, startEditingCell, updateTempValu
               </td>
 
               {/* Streak */}
-              <td
-                className={streakClass}
-                onClick={readOnly ? undefined : () => startEditingCell(rowIndex, "streak")}
-                style={readOnly ? undefined : { cursor: "pointer" }}
-              >
-                {!readOnly && row.editingField === "streak" ? (
-                  <input
-                    autoFocus
-                    type="number"
-                    value={row.tempValue ?? row.streak}
-                    onChange={(e) => updateTempValue(rowIndex, e.target.value)}
-                    onBlur={() => saveCellValue(rowIndex)}
-                    onKeyDown={(e) => { if (e.key === "Enter") saveCellValue(rowIndex); }}
-                    style={{ width: 56 }}
-                  />
-                ) : (row.streak > 0 ? `+${row.streak}` : row.streak)}
-              </td>
+              {!readOnly && (
+                <td
+                  className={streakClass}
+                  onClick={() => startEditingCell(rowIndex, "streak")}
+                  style={{ cursor: "pointer" }}
+                >
+                  {row.editingField === "streak" ? (
+                    <input
+                      autoFocus
+                      type="number"
+                      value={row.tempValue ?? row.streak}
+                      onChange={(e) => updateTempValue(rowIndex, e.target.value)}
+                      onBlur={() => saveCellValue(rowIndex)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveCellValue(rowIndex); }}
+                      style={{ width: 56 }}
+                    />
+                  ) : (row.streak > 0 ? `+${row.streak}` : row.streak)}
+                </td>
+              )}
 
               {/* Pause */}
               {!readOnly && (

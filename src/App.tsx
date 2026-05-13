@@ -131,6 +131,9 @@ function App() {
         }
       }
 
+      const currentMonday = getMondayOfCurrentWeek();
+      if (loadedWeekOf < currentMonday) loadedWeekOf = currentMonday;
+
       setRows(loadedRows);
       setWeekOf(loadedWeekOf);
       setHistory(loadedHistory);

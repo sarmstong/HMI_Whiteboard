@@ -240,6 +240,8 @@ function App() {
     setRows(updatedRows);
     setViewingIndex(null);
 
+    setWeekOf(getMondayOfCurrentWeek());
+
     // Snapshot before the board resets — preserves the completed week in backup history
     writeSnapshotBackup(updatedRows, weekOf, newHistory);
   };
